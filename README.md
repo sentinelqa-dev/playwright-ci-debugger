@@ -53,7 +53,7 @@ Add this after your Playwright test step:
 ```yaml
 - name: Upload Playwright debug report
   if: always()
-  uses: sentinelqa/playwright-ci-debugger@v1
+  uses: sentinelqa-dev/playwright-ci-debugger@v1
   with:
     project: my-app
 ```
@@ -91,7 +91,7 @@ jobs:
 
       - name: Upload Playwright debug report
         if: always()
-        uses: sentinelqa/playwright-ci-debugger@v1
+        uses: sentinelqa-dev/playwright-ci-debugger@v1
         with:
           project: my-app
           playwright-json-path: test-results/report.json
@@ -213,7 +213,7 @@ This keeps hosted runs tied to the correct GitHub execution context and enables 
 - name: Upload Playwright debug report
   id: sentinel
   if: always()
-  uses: sentinelqa/playwright-ci-debugger@v1
+  uses: sentinelqa-dev/playwright-ci-debugger@v1
   with:
     project: my-app
 

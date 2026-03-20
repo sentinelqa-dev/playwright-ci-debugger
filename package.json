@@ -4,6 +4,14 @@
   "private": false,
   "description": "GitHub Action to upload Playwright CI failures to a hosted Sentinel debug page.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sentinelqa-dev/playwright-ci-debugger.git"
+  },
+  "homepage": "https://github.com/sentinelqa-dev/playwright-ci-debugger#readme",
+  "bugs": {
+    "url": "https://github.com/sentinelqa-dev/playwright-ci-debugger/issues"
+  },
   "main": "index.js",
   "type": "commonjs",
   "engines": {
