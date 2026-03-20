@@ -1,72 +1,50 @@
 # Playwright CI Debugger
 
-Debug Playwright CI failures with a shareable link — no artifact downloads.
+## Debug Playwright CI failures instantly
 
-When Playwright fails in GitHub Actions, this action helps you upload the run and open a hosted debugging page with:
+Stop downloading traces, screenshots, and logs from GitHub Actions.
 
-- failed tests across jobs
-- traces
-- screenshots
-- videos
-- logs
-- grouped failures
-- quick failure context
+This action turns your Playwright CI run into a single shareable debugging link with:
 
-Instead of downloading artifacts manually, you get one link you can open or share in Slack, PRs, and GitHub issues.
+- AI root-cause summary of failed tests
+- All artifacts in one place (trace, logs, screenshots, video)
+- Run-to-run diff to see what changed
+- Shareable report for Slack, PRs, and GitHub issues
 
-## Why use this
+Add it in 30 seconds. No changes to your Playwright tests.
 
-Debugging Playwright in CI is usually slow because artifacts are scattered across jobs.
+---
 
-This action gives you a hosted debugging link so you can inspect failures from one place.
+## Why this exists
 
-Best for:
-- flaky Playwright failures
-- parallel CI jobs
-- debugging across traces, screenshots, and logs
-- sharing failures with teammates
+Debugging Playwright in CI is slow because:
 
-## What the action does
+- artifacts are scattered across jobs
+- logs don’t tell you what actually failed
+- comparing runs is manual and painful
 
-- validates Playwright artifact paths after your test run
-- uploads failed run data to Sentinel
-- prints a hosted debugging link in workflow logs
-- exposes the run URL as an action output
-- writes the report URL into the GitHub job summary
+This action gives you a single debugging surface instead of digging through CI.
 
-## How it works
+---
 
-This action is a post-processing step for GitHub Actions.
+## What you see in CI
 
-It does not run Playwright for you.
+After your tests run, you’ll get:
 
-The intended pattern is:
+```text
+Sentinel Debug Report
 
-1. your Playwright test step runs first
-2. this action runs afterward with `if: always()`
-3. the action reads files already produced by Playwright
-4. it uploads them to Sentinel
-5. it prints the hosted report link, sets outputs, and updates the job summary
+Root cause:
+Test "checkout flow" timed out because /api/cart returned 500
 
-The Playwright JSON report is the main source of truth.
+Full report:
+https://sentinelqa.com/run/abc123
 
-## Validation behavior
-
-The action has explicit behavior depending on what files exist:
-
-- JSON report present + `test-results` present
-  full upload mode
-- JSON report present but HTML report or `test-results` missing
-  degraded upload mode
-- JSON report missing
-  upload is skipped with a precise message
-
-By default, missing JSON fails the action. You can relax that with:
-
-```yaml
-with:
-  fail-on-missing-json: "false"
+Compare with last passing run:
+https://sentinelqa.com/run/xyz789
 ```
+
+---
 
 ## Quick start
 
@@ -78,19 +56,11 @@ Add this after your Playwright test step:
   uses: sentinelqa/playwright-ci-debugger@v1
   with:
     project: my-app
-    playwright-report-dir: playwright-report
-    test-results-dir: test-results
 ```
 
+---
+
 ## Recommended workflow
-
-This action works best when your Playwright run writes:
-
-- an HTML report directory
-- a JSON report file
-- the normal `test-results` directory
-
-Example workflow:
 
 ```yaml
 name: Playwright
@@ -129,9 +99,11 @@ jobs:
           test-results-dir: test-results
 ```
 
-## Playwright config
+---
 
-Make sure your Playwright config writes a JSON report file. For example:
+## Playwright config (required)
+
+Make sure your Playwright config writes a JSON report:
 
 ```ts
 import { defineConfig } from "@playwright/test";
@@ -139,70 +111,88 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   reporter: [
     ["html", { outputFolder: "playwright-report", open: "never" }],
-    ["json", { outputFile: "test-results/report.json" }]
+    ["json", { outputFile: "test-results/report.json" }],
   ],
-  outputDir: "test-results"
+  outputDir: "test-results",
 });
 ```
 
-If you already use `@sentinelqa/playwright-reporter`, these defaults already line up with the hosted Sentinel flow.
+If you already use `@sentinelqa/playwright-reporter`, you're already set up.
+
+---
+
+## What the action does
+
+After your Playwright tests finish, this action:
+
+- reads structured Playwright outputs (JSON + test-results)
+- collects traces, logs, screenshots, and videos
+- uploads everything to Sentinel
+- generates a hosted debugging report
+- prints the report link in CI logs
+- writes the link to the GitHub job summary
+- exposes outputs for reuse in your workflow
+
+---
+
+## Validation behavior
+
+The action adapts based on available artifacts:
+
+- JSON + `test-results` present → full mode
+- JSON present, missing other artifacts → degraded mode
+- JSON missing → upload skipped (or fail if configured)
+
+Control behavior with:
+
+```yaml
+with:
+  fail-on-missing-json: "false"
+```
+
+---
 
 ## Inputs
 
-- `project`
-  Sentinel project name shown in the hosted report.
-- `fail-on-missing-json`
-  Fail the action if the Playwright JSON report is missing.
-  Default: `true`
-- `playwright-json-path`
-  Path to the Playwright JSON report.
-  Default: `playwright-report/report.json`
-- `playwright-report-dir`
-  Path to the Playwright HTML report directory.
-  Default: `playwright-report`
-- `test-results-dir`
-  Path to the Playwright test results directory.
-  Default: `test-results`
-- `artifact-dirs`
-  Newline or comma separated extra artifact directories to upload.
+- `project` — Sentinel project name
+- `fail-on-missing-json` — fail if JSON missing (default: `true`)
+- `playwright-json-path` — default: `test-results/report.json`
+- `playwright-report-dir` — default: `playwright-report`
+- `test-results-dir` — default: `test-results`
+- `artifact-dirs` — extra directories to upload
+
+---
 
 ## Outputs
 
-- `report-url`
-  Hosted Sentinel report URL.
-- `share-url`
-  Hosted public share URL when available.
-- `first-failure-url`
-  Hosted first-failure URL when available.
-- `mode`
-  `public` or `workspace`
-- `summary`
-  Short upload summary
+- `report-url` — hosted Sentinel report
+- `share-url` — public share link
+- `first-failure-url` — direct link to first failure
+- `mode` — `public` or `workspace`
+- `summary` — AI-generated root-cause summary
+
+---
 
 ## Public vs workspace mode
 
-No auth is required for the default public flow.
+- No `SENTINEL_TOKEN` → uploads to a public hosted report
+- With `SENTINEL_TOKEN` → uploads to your Sentinel workspace
 
-- no `SENTINEL_TOKEN`
-  uploads to a public hosted report
-- `SENTINEL_TOKEN` set
-  uploads into your Sentinel workspace
-
-The action prints the same hosted link style as the Playwright reporter flow and also writes the report URL into the GitHub job summary.
+---
 
 ## Versioning
 
-This action uses a vendored, pinned Sentinel uploader package inside the repo instead of downloading `@sentinelqa/uploader@latest` at runtime.
+This action uses a vendored, pinned uploader package inside the repo.
 
-That means:
+- no dependency on npm `latest`
+- stable behavior per action tag
+- controlled, explicit uploader upgrades
 
-- action behavior is stable for a given tag
-- GitHub runs do not depend on npm registry resolution for the uploader
-- uploader upgrades are explicit and reviewed
+---
 
-## GitHub metadata
+## GitHub context
 
-When the action runs in GitHub Actions, Sentinel receives the normal GitHub CI context through the uploader flow, including:
+When the action runs in GitHub Actions, Sentinel receives normal CI context including:
 
 - repository
 - workflow name
@@ -213,7 +203,9 @@ When the action runs in GitHub Actions, Sentinel receives the normal GitHub CI c
 - branch
 - actor
 
-That keeps hosted runs tied to the correct GitHub execution context.
+This keeps hosted runs tied to the correct GitHub execution context and enables better run tracking and diffing.
+
+---
 
 ## Example using outputs
 
