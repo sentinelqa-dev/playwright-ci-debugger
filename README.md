@@ -1,17 +1,18 @@
 # Playwright CI Debugger
 
-## Debug Playwright CI failures instantly
+## Debug Playwright CI failures with one hosted link
 
-Stop downloading traces, screenshots, and logs from GitHub Actions.
+Stop downloading screenshots, videos, and raw CI artifacts from GitHub Actions.
 
 This action turns your Playwright CI run into a single shareable debugging link with:
 
-- AI root-cause summary of failed tests
-- All artifacts in one place (trace, logs, screenshots, video)
-- Run-to-run diff to see what changed
-- Shareable report for Slack, PRs, and GitHub issues
+- quick failure diagnosis in CI logs
+- a short failure preview in CI and the GitHub job summary
+- a hosted debugging report with grouped failures, screenshots, videos, and failure context
+- a shareable link for Slack, PRs, and GitHub issues
+- public mode with no auth, or workspace mode with `SENTINEL_TOKEN`
 
-Add it in 30 seconds. No changes to your Playwright tests.
+Add it after your Playwright step and upload the run in one place.
 
 ---
 
@@ -21,7 +22,7 @@ Debugging Playwright in CI is slow because:
 
 - artifacts are scattered across jobs
 - logs don’t tell you what actually failed
-- comparing runs is manual and painful
+- opening screenshots, videos, and raw artifacts is repetitive
 
 This action gives you a single debugging surface instead of digging through CI.
 
@@ -32,16 +33,31 @@ This action gives you a single debugging surface instead of digging through CI.
 After your tests run, you’ll get:
 
 ```text
-Sentinel Debug Report
+Quick diagnosis
+  3 tests failed.
+  Most common signal: assertion mismatch between expected and rendered UI state.
 
-Root cause:
-Test "checkout flow" timed out because /api/cart returned 500
+Uploading hosted debugging report to Sentinel...
 
-Full report:
-https://sentinelqa.com/run/abc123
+Sentinel report
 
-Compare with last passing run:
-https://sentinelqa.com/run/xyz789
+⚠️ 3 tests failed
+
+Failure preview:
+getByTestId('checkout-status') showed "Pending" instead of "Saved" before timeout.
+
+👉 Open to investigate root cause
+  https://app.sentinelqa.com/share/run/abc123
+
+Repository: sentinelqa-dev/my-app
+Workflow: Playwright
+Job: e2e
+Run: 23364310398 (attempt 2)
+
+Link expires in 48h
+
+Upgrade for free to get full AI debugging suggestions
+  https://app.sentinelqa.com/register
 ```
 
 ---
@@ -56,6 +72,9 @@ Add this after your Playwright test step:
   uses: sentinelqa-dev/playwright-ci-debugger@v1
   with:
     project: my-app
+    playwright-json-path: test-results/report.json
+    playwright-report-dir: playwright-report
+    test-results-dir: test-results
 ```
 
 ---
@@ -103,6 +122,8 @@ jobs:
 
 ## Playwright config (required)
 
+This action needs a Playwright JSON report and works best when Playwright also writes `test-results` and the HTML report directory.
+
 Make sure your Playwright config writes a JSON report:
 
 ```ts
@@ -117,7 +138,7 @@ export default defineConfig({
 });
 ```
 
-If you already use `@sentinelqa/playwright-reporter`, you're already set up.
+If you already use `@sentinelqa/playwright-reporter`, you're usually already set up.
 
 ---
 
@@ -129,9 +150,10 @@ After your Playwright tests finish, this action:
 - collects traces, logs, screenshots, and videos
 - uploads everything to Sentinel
 - generates a hosted debugging report
+- writes a GitHub job summary with the hosted report link
 - prints the report link in CI logs
-- writes the link to the GitHub job summary
 - exposes outputs for reuse in your workflow
+- supports public mode with no token or workspace mode with `SENTINEL_TOKEN`
 
 ---
 
@@ -169,7 +191,7 @@ with:
 - `share-url` — public share link
 - `first-failure-url` — direct link to first failure
 - `mode` — `public` or `workspace`
-- `summary` — AI-generated root-cause summary
+- `summary` — short failure/upload summary
 
 ---
 
@@ -177,6 +199,12 @@ with:
 
 - No `SENTINEL_TOKEN` → uploads to a public hosted report
 - With `SENTINEL_TOKEN` → uploads to your Sentinel workspace
+
+Public mode is the lowest-friction distribution path:
+
+- no auth required
+- shareable hosted debugging link
+- conversion CTA into Sentinel workspace setup
 
 ---
 
@@ -203,7 +231,7 @@ When the action runs in GitHub Actions, Sentinel receives normal CI context incl
 - branch
 - actor
 
-This keeps hosted runs tied to the correct GitHub execution context and enables better run tracking and diffing.
+This keeps hosted runs tied to the correct GitHub execution context and makes shared reports easier to understand.
 
 ---
 

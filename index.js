@@ -512,7 +512,7 @@ const main = async () => {
       const preview = previewSummary(failures[0]);
       if (preview) {
         console.log("");
-        console.log("AI summary (preview):");
+        console.log("Failure preview:");
         console.log(preview);
       }
       console.log("");
@@ -543,7 +543,7 @@ const main = async () => {
       "",
       process.env.SENTINEL_TOKEN
         ? `[Open hosted debugging report](${reportUrl})`
-        : `👉 [Debug this run (traces + logs + screenshots in one place)](${reportUrl})`,
+        : `👉 [Debug this run in one place](${reportUrl})`,
       ""
     ];
     if (!process.env.SENTINEL_TOKEN) {
@@ -553,7 +553,7 @@ const main = async () => {
       );
       const preview = previewSummary(failures[0]);
       if (preview) {
-        summaryLines.push("", "AI summary (preview):", preview);
+        summaryLines.push("", "Failure preview:", preview);
       }
       summaryLines.push("");
     }
