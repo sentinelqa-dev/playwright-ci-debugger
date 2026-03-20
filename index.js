@@ -124,33 +124,89 @@ const flattenFailedCases = (node, titlePath = []) => {
   return failedCases;
 };
 
-const buildQuickDiagnosis = (playwrightJsonPath) => {
-  if (!fs.existsSync(playwrightJsonPath)) return null;
+const normalizeMessageFingerprint = (message) =>
+  stripAnsi(message)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(" | ")
+    .replace(/\b\d+ms\b/gi, "<ms>")
+    .replace(/:\d+:\d+/g, ":<line>:<col>")
+    .replace(/\s+/g, " ")
+    .slice(0, 200);
+
+const collectFailedCases = (playwrightJsonPath) => {
+  if (!fs.existsSync(playwrightJsonPath)) return [];
   try {
     const raw = fs.readFileSync(playwrightJsonPath, "utf8");
     const parsed = JSON.parse(raw);
-    const failures = flattenFailedCases(parsed);
-    if (!failures.length) return null;
-    if (failures.length === 1) {
-      return {
-        lines: [`Test "${failures[0].title.split(" > ").pop()}" likely failed due to ${signalSummary(failures[0].signal)}.`]
-      };
-    }
-
-    const counts = new Map();
-    for (const failure of failures) {
-      counts.set(failure.signal, (counts.get(failure.signal) || 0) + 1);
-    }
-    const topSignal = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "unknown";
-    return {
-      lines: [
-        `${failures.length} tests failed.`,
-        `Most common signal: ${signalSummary(topSignal)}.`
-      ]
-    };
+    return flattenFailedCases(parsed);
   } catch {
-    return null;
+    return [];
   }
+};
+
+const buildSimilarityKey = (failure) => {
+  const locator = failure.message.match(/Locator:\s*(.+)/i)?.[1]?.trim() || null;
+  const expected = failure.message.match(/Expected:\s*"([^"]+)"/i)?.[1] || null;
+  const received = failure.message.match(/Received:\s*"([^"]+)"/i)?.[1] || null;
+  if (locator || expected || received) {
+    return [
+      failure.signal,
+      locator || "unknown-locator",
+      expected || "unknown-expected",
+      received || "unknown-received"
+    ].join("|");
+  }
+  return `${failure.signal}|${normalizeMessageFingerprint(failure.message)}`;
+};
+
+const hasSingleDeterministicCluster = (failures) => {
+  if (failures.length < 2) return false;
+  const keys = new Set(failures.map((failure) => buildSimilarityKey(failure)));
+  return keys.size === 1;
+};
+
+const previewSummary = (failure) => {
+  if (!failure) return null;
+  const locator = failure.message.match(/Locator:\s*(.+)/i)?.[1]?.trim() || null;
+  const timeoutMs = failure.message.match(/Timeout:\s*(\d+)\s*ms/i)?.[1] || null;
+  const expected = failure.message.match(/Expected:\s*"([^"]+)"/i)?.[1] || null;
+  const received = failure.message.match(/Received:\s*"([^"]+)"/i)?.[1] || null;
+
+  if (failure.signal === "assertion_mismatch" && locator && expected && received) {
+    return `${locator} showed "${received}" instead of "${expected}" before timeout.`;
+  }
+  if (failure.signal === "timeout" && locator && timeoutMs) {
+    return `Timeout waiting for ${locator} after ${timeoutMs}ms.`;
+  }
+  if (failure.signal === "locator_not_found" && locator) {
+    return `${locator} was not found when the test expected it to be available.`;
+  }
+  return signalSummary(failure.signal);
+};
+
+const buildQuickDiagnosis = (playwrightJsonPath) => {
+  const failures = collectFailedCases(playwrightJsonPath);
+  if (!failures.length) return null;
+  if (failures.length === 1) {
+    return {
+      lines: [`Test "${failures[0].title.split(" > ").pop()}" likely failed due to ${signalSummary(failures[0].signal)}.`]
+    };
+  }
+
+  const counts = new Map();
+  for (const failure of failures) {
+    counts.set(failure.signal, (counts.get(failure.signal) || 0) + 1);
+  }
+  const topSignal = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "unknown";
+  return {
+    lines: [
+      `${failures.length} tests failed.`,
+      `Most common signal: ${signalSummary(topSignal)}.`
+    ]
+  };
 };
 
 const appendSummary = (lines) => {
@@ -284,7 +340,7 @@ const runUploader = async ({
   const env = {
     ...process.env,
     ...buildGitHubFallbackEnv(),
-    SENTINEL_REPORTER_SILENT: "1",
+    ...(process.env.SENTINEL_TOKEN ? {} : { SENTINEL_REPORTER_SILENT: "1" }),
     SENTINEL_SUPPRESS_SUMMARY_JSON: "1",
     SENTINEL_EMIT_RESULT_JSON: "1"
   };
@@ -353,6 +409,7 @@ const main = async () => {
     const artifactDirs = splitArtifactDirs(readInput("artifact-dirs", ""));
     const failOnMissingJson = isTruthy(readInput("fail-on-missing-json", "true"));
     const gh = githubContext();
+    const failures = collectFailedCases(playwrightJsonPath);
 
     if (!gh.runId || !gh.repository || process.env.GITHUB_ACTIONS !== "true") {
       throw new Error("This action must run inside GitHub Actions with standard GitHub workflow metadata available.");
@@ -447,27 +504,65 @@ const main = async () => {
     setOutput("summary", summary);
 
     console.log("");
-    console.log("Sentinel report");
-    console.log(`  ${reportUrl}`);
-    if (upload.result?.shareLabel) {
-      console.log(`  ${upload.result.shareLabel}`);
-    }
     if (!process.env.SENTINEL_TOKEN) {
+      const grouped = hasSingleDeterministicCluster(failures);
+      console.log("Sentinel report");
+      console.log("");
+      console.log(`⚠️ ${failures.length || "Some"} test${failures.length === 1 ? "" : "s"} failed${grouped ? " (same root cause)" : ""}`);
+      const preview = previewSummary(failures[0]);
+      if (preview) {
+        console.log("");
+        console.log("AI summary (preview):");
+        console.log(preview);
+      }
+      console.log("");
+      console.log(`👉 ${grouped ? "Open grouped failures and investigate the root cause" : "Open to investigate root cause"}`);
+      console.log(`  ${reportUrl}`);
+      console.log("");
+      console.log(`Repository: ${gh.repository || "-"}`);
+      console.log(`Workflow: ${gh.workflow || "-"}`);
+      console.log(`Job: ${gh.job || "-"}`);
+      console.log(`Run: ${gh.runId || "-"}${gh.runAttempt ? ` (attempt ${gh.runAttempt})` : ""}`);
+      if (upload.result?.shareLabel) {
+        console.log("");
+        console.log(`Link ${upload.result.shareLabel}`);
+      }
       console.log("");
       console.log("Upgrade for free to get full AI debugging suggestions");
       console.log("  https://app.sentinelqa.com/register");
+    } else {
+      console.log("Sentinel report");
+      console.log(`  ${reportUrl}`);
+      if (upload.result?.shareLabel) {
+        console.log(`  ${upload.result.shareLabel}`);
+      }
     }
 
     const summaryLines = [
       "## Sentinel report",
       "",
-      `[Open hosted debugging report](${reportUrl})`,
-      "",
+      process.env.SENTINEL_TOKEN
+        ? `[Open hosted debugging report](${reportUrl})`
+        : `👉 [Debug this run (traces + logs + screenshots in one place)](${reportUrl})`,
+      ""
+    ];
+    if (!process.env.SENTINEL_TOKEN) {
+      const grouped = hasSingleDeterministicCluster(failures);
+      summaryLines.push(
+        `⚠️ ${failures.length || "Some"} test${failures.length === 1 ? "" : "s"} failed${grouped ? " (same root cause)" : ""}`
+      );
+      const preview = previewSummary(failures[0]);
+      if (preview) {
+        summaryLines.push("", "AI summary (preview):", preview);
+      }
+      summaryLines.push("");
+    }
+    summaryLines.push(
       `Repository: ${gh.repository}`,
       `Workflow: ${gh.workflow || "-"}`,
       `Job: ${gh.job || "-"}`,
       `Run: ${gh.runId}${gh.runAttempt ? ` (attempt ${gh.runAttempt})` : ""}`
-    ];
+    );
     if (upload.result?.shareLabel) {
       summaryLines.push("", upload.result.shareLabel);
     }
