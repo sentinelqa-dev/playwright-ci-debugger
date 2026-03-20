@@ -3,7 +3,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
+const { spawn, execFileSync } = require("node:child_process");
 
 const UPLOADER_VERSION = "0.1.29";
 const VENDORED_UPLOADER_TARBALL = path.join(
@@ -175,6 +175,14 @@ const readGitHubEvent = () => {
   }
 };
 
+const execGit = (args) => {
+  try {
+    return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return null;
+  }
+};
+
 const ensureDirForUpload = (dirPath, label) => {
   if (existsDir(dirPath)) {
     return { path: dirPath, degraded: false, reason: null };
@@ -211,12 +219,15 @@ const buildGitHubFallbackEnv = () => {
     event?.after ||
     event?.workflow_run?.head_sha ||
     event?.check_suite?.head_sha ||
+    execGit(["rev-parse", "HEAD"]) ||
     null;
   const refName =
     process.env.GITHUB_REF_NAME ||
+    process.env.GITHUB_HEAD_REF ||
     pullRequest?.head?.ref ||
     event?.ref_name ||
     (typeof event?.ref === "string" ? event.ref.replace(/^refs\/heads\//, "") : null) ||
+    execGit(["branch", "--show-current"]) ||
     null;
 
   return {
@@ -382,6 +393,13 @@ const main = async () => {
       }
       console.log("");
     }
+
+    const resolvedGitHubEnv = buildGitHubFallbackEnv();
+    console.log("GitHub context");
+    console.log(`  Repo: ${resolvedGitHubEnv.GITHUB_REPOSITORY || "-"}`);
+    console.log(`  SHA: ${resolvedGitHubEnv.GITHUB_SHA || "-"}`);
+    console.log(`  Branch: ${resolvedGitHubEnv.GITHUB_REF_NAME || "-"}`);
+    console.log("");
 
     console.log("");
     console.log("Uploading hosted debugging report to Sentinel...");
