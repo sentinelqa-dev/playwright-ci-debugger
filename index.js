@@ -229,6 +229,18 @@ const buildGitHubFallbackEnv = () => {
     (typeof event?.ref === "string" ? event.ref.replace(/^refs\/heads\//, "") : null) ||
     execGit(["branch", "--show-current"]) ||
     null;
+  const commitMessage =
+    process.env.GITHUB_COMMIT_MESSAGE ||
+    event?.head_commit?.message ||
+    event?.workflow_run?.head_commit?.message ||
+    pullRequest?.title ||
+    execGit(["log", "-1", "--pretty=%B"]) ||
+    undefined;
+  const actor =
+    process.env.GITHUB_ACTOR ||
+    event?.sender?.login ||
+    process.env.GITHUB_TRIGGERING_ACTOR ||
+    undefined;
 
   return {
     GITHUB_ACTIONS: process.env.GITHUB_ACTIONS || "true",
@@ -236,11 +248,12 @@ const buildGitHubFallbackEnv = () => {
     GITHUB_REPOSITORY: repository || undefined,
     GITHUB_SHA: sha || undefined,
     GITHUB_REF_NAME: refName || undefined,
+    GITHUB_COMMIT_MESSAGE: commitMessage || undefined,
     GITHUB_RUN_ID: process.env.GITHUB_RUN_ID || undefined,
     GITHUB_RUN_ATTEMPT: process.env.GITHUB_RUN_ATTEMPT || undefined,
     GITHUB_WORKFLOW: process.env.GITHUB_WORKFLOW || undefined,
     GITHUB_JOB: process.env.GITHUB_JOB || undefined,
-    GITHUB_ACTOR: process.env.GITHUB_ACTOR || undefined
+    GITHUB_ACTOR: actor || undefined
   };
 };
 
@@ -399,6 +412,7 @@ const main = async () => {
     console.log(`  Repo: ${resolvedGitHubEnv.GITHUB_REPOSITORY || "-"}`);
     console.log(`  SHA: ${resolvedGitHubEnv.GITHUB_SHA || "-"}`);
     console.log(`  Branch: ${resolvedGitHubEnv.GITHUB_REF_NAME || "-"}`);
+    console.log(`  Message: ${resolvedGitHubEnv.GITHUB_COMMIT_MESSAGE ? "present" : "-"}`);
     console.log("");
 
     console.log("");
