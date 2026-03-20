@@ -1,0 +1,15 @@
+{
+  "name": "playwright-ci-debugger",
+  "version": "0.1.0",
+  "private": false,
+  "description": "GitHub Action to upload Playwright CI failures to a hosted Sentinel debug page.",
+  "license": "MIT",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node --check index.js"
+  }
+}

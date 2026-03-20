@@ -1,0 +1,40 @@
+name: Playwright CI Debugger
+description: Debug Playwright CI failures with a shareable link — no artifact downloads.
+inputs:
+  project:
+    description: Sentinel project name shown in the hosted report.
+    required: false
+  fail-on-missing-json:
+    description: Fail the action if the Playwright JSON report is missing.
+    required: false
+    default: "true"
+  playwright-json-path:
+    description: Path to the Playwright JSON report.
+    required: false
+    default: playwright-report/report.json
+  playwright-report-dir:
+    description: Path to the Playwright HTML report directory.
+    required: false
+    default: playwright-report
+  test-results-dir:
+    description: Path to the Playwright test results directory.
+    required: false
+    default: test-results
+  artifact-dirs:
+    description: Newline or comma separated extra artifact directories to upload.
+    required: false
+    default: ""
+outputs:
+  report-url:
+    description: Hosted Sentinel report URL.
+  share-url:
+    description: Hosted public share URL when available.
+  first-failure-url:
+    description: Hosted first-failure URL when available.
+  mode:
+    description: Upload mode used by the action. public or workspace.
+  summary:
+    description: Short action summary.
+runs:
+  using: node20
+  main: index.js
