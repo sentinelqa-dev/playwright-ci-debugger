@@ -284,6 +284,7 @@ const runUploader = async ({
   const env = {
     ...process.env,
     ...buildGitHubFallbackEnv(),
+    SENTINEL_REPORTER_SILENT: "1",
     SENTINEL_SUPPRESS_SUMMARY_JSON: "1",
     SENTINEL_EMIT_RESULT_JSON: "1"
   };
@@ -407,13 +408,15 @@ const main = async () => {
       console.log("");
     }
 
-    const resolvedGitHubEnv = buildGitHubFallbackEnv();
-    console.log("GitHub context");
-    console.log(`  Repo: ${resolvedGitHubEnv.GITHUB_REPOSITORY || "-"}`);
-    console.log(`  SHA: ${resolvedGitHubEnv.GITHUB_SHA || "-"}`);
-    console.log(`  Branch: ${resolvedGitHubEnv.GITHUB_REF_NAME || "-"}`);
-    console.log(`  Message: ${resolvedGitHubEnv.GITHUB_COMMIT_MESSAGE ? "present" : "-"}`);
-    console.log("");
+    if (process.env.SENTINEL_TOKEN || isTruthy(process.env.SENTINEL_DEBUG)) {
+      const resolvedGitHubEnv = buildGitHubFallbackEnv();
+      console.log("GitHub context");
+      console.log(`  Repo: ${resolvedGitHubEnv.GITHUB_REPOSITORY || "-"}`);
+      console.log(`  SHA: ${resolvedGitHubEnv.GITHUB_SHA || "-"}`);
+      console.log(`  Branch: ${resolvedGitHubEnv.GITHUB_REF_NAME || "-"}`);
+      console.log(`  Message: ${resolvedGitHubEnv.GITHUB_COMMIT_MESSAGE ? "present" : "-"}`);
+      console.log("");
+    }
 
     console.log("");
     console.log("Uploading hosted debugging report to Sentinel...");
