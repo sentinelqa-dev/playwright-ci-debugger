@@ -15,10 +15,11 @@ const VENDORED_UPLOADER_TARBALL = path.join(
 const stripAnsi = (value) => value.replace(/\u001b\[[0-9;]*m/g, "");
 
 const readInput = (name, fallback = "") => {
+  const normalized = name.toUpperCase();
   const candidates = [
-    name,
-    name.replace(/_/g, "-"),
-    name.replace(/-/g, "_")
+    normalized,
+    normalized.replace(/_/g, "-"),
+    normalized.replace(/-/g, "_")
   ];
   for (const key of candidates) {
     const value = process.env[key];
