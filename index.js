@@ -15,8 +15,16 @@ const VENDORED_UPLOADER_TARBALL = path.join(
 const stripAnsi = (value) => value.replace(/\u001b\[[0-9;]*m/g, "");
 
 const readInput = (name, fallback = "") => {
-  const value = process.env[name];
-  return value && value.trim().length > 0 ? value.trim() : fallback;
+  const candidates = [
+    name,
+    name.replace(/_/g, "-"),
+    name.replace(/-/g, "_")
+  ];
+  for (const key of candidates) {
+    const value = process.env[key];
+    if (value && value.trim().length > 0) return value.trim();
+  }
+  return fallback;
 };
 
 const isTruthy = (value) =>
