@@ -1,5 +1,5 @@
 name: Playwright CI Debugger
-description: Debug Playwright CI failures with a shareable link — no artifact downloads.
+description: Debug Playwright CI failures with AI root-cause summaries and a shareable hosted report.
 inputs:
   project:
     description: Sentinel project name shown in the hosted report.
@@ -11,7 +11,7 @@ inputs:
   playwright-json-path:
     description: Path to the Playwright JSON report.
     required: false
-    default: playwright-report/report.json
+    default: test-results/report.json
   playwright-report-dir:
     description: Path to the Playwright HTML report directory.
     required: false
