@@ -196,11 +196,9 @@ const runUploader = async ({
   project
 }) => {
   const args = [
-    "exec",
     "--yes",
     "--package",
     VENDORED_UPLOADER_TARBALL,
-    "--",
     "sentinelqa",
     "upload",
     "--playwright-json-path",
