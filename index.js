@@ -15,10 +15,9 @@ const VENDORED_UPLOADER_TARBALL = path.join(
 const stripAnsi = (value) => value.replace(/\u001b\[[0-9;]*m/g, "");
 
 const readInput = (name, fallback = "") => {
-  const normalized = name.toUpperCase();
+  const normalized = `INPUT_${name.replace(/ /g, "_").toUpperCase()}`;
   const candidates = [
     normalized,
-    normalized.replace(/_/g, "-"),
     normalized.replace(/-/g, "_")
   ];
   for (const key of candidates) {
@@ -278,12 +277,12 @@ const main = async () => {
   }
 
   try {
-    const project = readInput("INPUT_PROJECT");
-    const playwrightJsonPath = readInput("INPUT_PLAYWRIGHT_JSON_PATH", "playwright-report/report.json");
-    const playwrightReportDir = readInput("INPUT_PLAYWRIGHT_REPORT_DIR", "playwright-report");
-    const testResultsDir = readInput("INPUT_TEST_RESULTS_DIR", "test-results");
-    const artifactDirs = splitArtifactDirs(readInput("INPUT_ARTIFACT_DIRS", ""));
-    const failOnMissingJson = isTruthy(readInput("INPUT_FAIL_ON_MISSING_JSON", "true"));
+    const project = readInput("project");
+    const playwrightJsonPath = readInput("playwright-json-path", "test-results/report.json");
+    const playwrightReportDir = readInput("playwright-report-dir", "playwright-report");
+    const testResultsDir = readInput("test-results-dir", "test-results");
+    const artifactDirs = splitArtifactDirs(readInput("artifact-dirs", ""));
+    const failOnMissingJson = isTruthy(readInput("fail-on-missing-json", "true"));
     const gh = githubContext();
 
     if (!gh.runId || !gh.repository || process.env.GITHUB_ACTIONS !== "true") {
