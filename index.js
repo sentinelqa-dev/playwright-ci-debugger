@@ -165,6 +165,16 @@ const setOutput = (name, value) => {
   fs.appendFileSync(outputPath, `${name}=${String(value ?? "")}\n`);
 };
 
+const readGitHubEvent = () => {
+  const eventPath = process.env.GITHUB_EVENT_PATH;
+  if (!eventPath || !existsFile(eventPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(eventPath, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
 const ensureDirForUpload = (dirPath, label) => {
   if (existsDir(dirPath)) {
     return { path: dirPath, degraded: false, reason: null };
@@ -187,6 +197,41 @@ const githubContext = () => ({
   refName: process.env.GITHUB_REF_NAME || null,
   actor: process.env.GITHUB_ACTOR || null
 });
+
+const buildGitHubFallbackEnv = () => {
+  const event = readGitHubEvent();
+  const pullRequest = event?.pull_request || null;
+  const repository =
+    process.env.GITHUB_REPOSITORY ||
+    event?.repository?.full_name ||
+    null;
+  const sha =
+    process.env.GITHUB_SHA ||
+    pullRequest?.head?.sha ||
+    event?.after ||
+    event?.workflow_run?.head_sha ||
+    event?.check_suite?.head_sha ||
+    null;
+  const refName =
+    process.env.GITHUB_REF_NAME ||
+    pullRequest?.head?.ref ||
+    event?.ref_name ||
+    (typeof event?.ref === "string" ? event.ref.replace(/^refs\/heads\//, "") : null) ||
+    null;
+
+  return {
+    GITHUB_ACTIONS: process.env.GITHUB_ACTIONS || "true",
+    GITHUB_SERVER_URL: process.env.GITHUB_SERVER_URL || "https://github.com",
+    GITHUB_REPOSITORY: repository || undefined,
+    GITHUB_SHA: sha || undefined,
+    GITHUB_REF_NAME: refName || undefined,
+    GITHUB_RUN_ID: process.env.GITHUB_RUN_ID || undefined,
+    GITHUB_RUN_ATTEMPT: process.env.GITHUB_RUN_ATTEMPT || undefined,
+    GITHUB_WORKFLOW: process.env.GITHUB_WORKFLOW || undefined,
+    GITHUB_JOB: process.env.GITHUB_JOB || undefined,
+    GITHUB_ACTOR: process.env.GITHUB_ACTOR || undefined
+  };
+};
 
 const runUploader = async ({
   playwrightJsonPath,
@@ -214,6 +259,7 @@ const runUploader = async ({
 
   const env = {
     ...process.env,
+    ...buildGitHubFallbackEnv(),
     SENTINEL_SUPPRESS_SUMMARY_JSON: "1",
     SENTINEL_EMIT_RESULT_JSON: "1"
   };
